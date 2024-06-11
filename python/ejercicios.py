@@ -1,7 +1,7 @@
 
 #Ejercicio 1
 
-
+print("hola mundo")
 
 
 #Ejercicio 2
