@@ -472,6 +472,7 @@ class RegistrarInfo(Inicio_Secion):
 
 
             elif opcion == "3":
+                print("Op3")
                 cursor = conexion.cursor()
 
                 try:
@@ -494,9 +495,9 @@ class RegistrarInfo(Inicio_Secion):
                         cv.usuario AS usuario_varios,
                         cv.clave_pagina
                     FROM
-                        cat_redes_sociales cr
+                        registro_usuarios r
                     LEFT JOIN
-                        registro_usuarios r ON cr.relacion_registro_redes = r.id_registro
+                        cat_redes_sociales cr ON cr.relacion_registro_redes = r.id_registro
                     LEFT JOIN
                         cat_correos cc ON cc.relacion_registro_correos = r.id_registro
                     LEFT JOIN
@@ -508,6 +509,9 @@ class RegistrarInfo(Inicio_Secion):
                     """
                     cursor.execute(query, (self.id_usuario,))
                     user_data = cursor.fetchall()
+                    print(self.id_usuario)
+                    print(user_data)
+                    print("ingreso datos**********")
                     if user_data:
                         print("Datos del usuario:")
                         cipher_suite = Fernet(key)  # Assuming 'key' is defined and holds the correct Fernet key
@@ -517,7 +521,7 @@ class RegistrarInfo(Inicio_Secion):
                             "banco": set(),
                             "varios": set()
                         }
-                        
+                        print("verificacion")
                         for entry in user_data:
                             
                             if entry[1] is not None and entry[2] is not None and entry[3] is not None:
@@ -551,12 +555,13 @@ class RegistrarInfo(Inicio_Secion):
                         
                         for category, entries in categorized_entries.items():
                             print(f"Categoría: {category}")
-                            if entries:
-                                for entry in entries:
-                                    print(f"Tipo: {entry[0]}, Usuario: {entry[1]}, Clave: {entry[2]}")
-                            else:
-                                print("No hay datos disponibles en esta categoría.")
+                            #if entries:
+                            for entry in entries:
+                                print(f"Tipo: {entry[0]}, Usuario: {entry[1]}, Clave: {entry[2]}")
+                            #else:
+                                # print("No hay datos disponibles en esta categoría.")
                             print("-" * 40)
+                        print(categorized_entries)
                     else:
                         print("No se encontraron datos para el usuario.")
 
