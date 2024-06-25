@@ -6,6 +6,9 @@ from PIL import Image
 from cryptography.fernet import Fernet
 import traceback
 import getpass
+import tempfile
+import os
+
 #usuario_id = 0;
 
 # Intenta establecer conexión con la base de datos y maneja posibles errores de conexión
@@ -150,8 +153,8 @@ class Inicio_Secion(Registro):
                                             print("Atencion ",usuario_id)
                                             
                                         
-                                        gestion = RegistrarInfo()
-                                        gestion.Gestion_datos()
+                                            gestion = RegistrarInfo()
+                                            gestion.Gestion_datos()
                                         # Aquí puedes realizar cualquier acción adicional después del inicio de sesión exitoso
                                         return  # Salir del método después del inicio de sesión exitoso
                                     else:
@@ -228,12 +231,21 @@ class RegistrarInfo(Inicio_Secion):
 
         #usuario_id = self.Inicio()
 
+
+    
+    
+
+
+
         while True:
             opcion = input("1- para registrar\n"
                         "2- para editar registros \n"
                         "3- para visualizar datos\n"
                         "4- para busqueda manual \n"
-                        "5- para salir\n")
+                        "5- para guardar archivos imagen/pdf \n"
+                        "6- para mostrar archivos \n"
+                        "7- para eliminar archivo \n"
+                        "8- para salir ")
 
             if opcion == "1":
                 while True:
@@ -491,7 +503,7 @@ class RegistrarInfo(Inicio_Secion):
 
 
             elif opcion == "3":
-                print("Op3")
+                
                 cursor = conexion.cursor()
 
                 try:
@@ -684,24 +696,137 @@ class RegistrarInfo(Inicio_Secion):
                     traceback.print_exc()
         
             
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
             elif opcion == "5":
+                try:
+                    nombre_archivo = input("ingrese el nombre del archivo ")
+                    tipo_archivo= input("ingrese el tipo de archivo ") 
+                    ruta_archivo = input("ingrese la ruta del archivo ")
+                    
+                    cursor = conexion.cursor()
+                    # Leer el archivo en binario
+                    with open(ruta_archivo, "rb") as file:
+                        archivo_binario = file.read()
+                    
+                    # Crear la consulta SQL para insertar el archivo
+                    sql = ("INSERT INTO cat_multimedia (nombre_archivo, tipo_archivo, archivo, relacion_registro_multimedia) "
+                        "VALUES (%s, %s, %s, %s)")
+                    datos = (nombre_archivo, tipo_archivo, archivo_binario, usuario_id)
+                    
+                    # Ejecutar la consulta y confirmar los cambios
+                    cursor.execute(sql, datos)
+                    conexion.commit()
+                    
+                    print("Archivo guardado exitosamente.")
+                except FileNotFoundError:
+                    print("Error: El archivo no se encontró en la ruta especificada.")
+                except Exception as e:
+                    print(f"Error al guardar el archivo: {e}")
+                    traceback.print_exc()
+                    # Ejemplo de uso de la función
+#guardar_archivo_multimedia(1, "imagen_prueba.jpg", "image/jpeg", "/ruta/a/imagen_prueba.jpg")
 
-                print("Saliendo del programa...")
-                exit()
+
+            elif opcion == "6":
+                
+
+                cursor = conexion.cursor()
+        
+                # Consulta SQL para obtener los archivos multimedia del usuario
+                sql = "SELECT id_multimedia, nombre_archivo FROM cat_multimedia WHERE relacion_registro_multimedia = %s"
+                cursor.execute(sql, (usuario_id,))
+                
+                archivos = cursor.fetchall()
+                
+                # Mostrar la lista de archivos multimedia
+                print("\nArchivos multimedia disponibles:\n" + "-"*30)
+                for archivo in archivos:
+                    print(f"ID: {archivo[0]} | Nombre: {archivo[1]}")
+                print("-"*30 + "\n")
+                
+                # Permitir al usuario seleccionar un archivo por su ID
+                seleccion = input("Ingrese el ID del archivo que desea visualizar (o 'q' para salir): ")
+                
+                if seleccion.lower() == 'q':
+                    continue
+                
+                id_archivo = int(seleccion)
+                
+                # Consultar el archivo seleccionado
+                sql = "SELECT nombre_archivo, tipo_archivo, archivo FROM cat_multimedia WHERE id_multimedia = %s"
+                cursor.execute(sql, (id_archivo,))
+                
+                archivo = cursor.fetchone()
+                
+                # Guardar el archivo en una ubicación temporal y mostrarlo
+                if archivo:
+                    nombre_archivo = archivo[0]
+                    tipo_archivo = archivo[1]
+                    contenido_archivo = archivo[2]
+                    
+                    # Guardar el archivo temporalmente
+                    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                        temp_file.write(contenido_archivo)
+                        nombre_temporal = temp_file.name
+                    
+                    # Mostrar el archivo (aquí puedes abrir el archivo con el visor predeterminado del sistema)
+                    print(f"Visualizando archivo: {nombre_archivo}")
+                    # Ejemplo: abrir el archivo con el visor predeterminado del sistema
+                    os.startfile(nombre_temporal)  # Funciona en Windows, ajusta para otros sistemas
+                    
+                    # Opcional: podrías usar una biblioteca específica para abrir archivos según su tipo (PDF, imagen, etc.)
+                
+                else:
+                    print("No se encontró el archivo especificado.")
+
+
+            
+            elif opcion == "7":
+                cursor = conexion.cursor()
+                # Consulta SQL para obtener los archivos multimedia del usuario
+                sql = "SELECT id_multimedia, nombre_archivo FROM cat_multimedia WHERE relacion_registro_multimedia = %s"
+                cursor.execute(sql, (usuario_id,))
+                
+                archivos = cursor.fetchall()
+                
+                # Mostrar la lista de archivos multimedia
+                print("\nArchivos multimedia disponibles para eliminar:\n" + "-"*30)
+                for archivo in archivos:
+                    print(f"ID: {archivo[0]} | Nombre: {archivo[1]}")
+                print("-"*30 + "\n")
+                
+                # Permitir al usuario seleccionar un archivo por su ID
+                seleccion = input("Ingrese el ID del archivo que desea eliminar (o 'q' para salir): ")
+                
+                if seleccion.lower() == 'q':
+                    continue
+                
+                id_archivo = int(seleccion)
+                
+                # Confirmar la eliminación
+                confirmacion = input(f"¿Está seguro que desea eliminar el archivo con ID {id_archivo}? (s/n): ")
+                if confirmacion.lower() != 's':
+                    print("Eliminación cancelada.")
+                    continue
+                
+                # Eliminar el archivo seleccionado
+                sql = "DELETE FROM cat_multimedia WHERE id_multimedia = %s"
+                cursor.execute(sql, (id_archivo,))
+                conexion.commit()
+                
+                print(f"Archivo con ID {id_archivo} eliminado exitosamente.")
+            
+            elif opcion == "8":
+
+                    print("Saliendo del programa...")
+                    exit()
 
 
     
 # Ejemplo de uso
+
+
+
+
 
 while True:
 
@@ -722,6 +847,7 @@ while True:
 
     else:
         print("ingrese un opcion valida ")  
+
 
 
 
