@@ -6,6 +6,7 @@ from PIL import Image
 from cryptography.fernet import Fernet
 import traceback
 import getpass
+#usuario_id = 0;
 
 # Intenta establecer conexión con la base de datos y maneja posibles errores de conexión
 try:
@@ -20,7 +21,8 @@ except mysql.connector.Error as e:
     print(f"Error al conectar a la base de datos: {e}")  # Mensaje de error si la conexión falla
     conexion = None  # Establece la conexión como None si hay errores
 
-bandera = False
+#Variable global
+usuario_id = None
 
 class Registro():
     def __init__(self):
@@ -104,79 +106,92 @@ class Inicio_Secion(Registro):
     def Inicio(self):
         
         
+        
         if conexion is None:
             print("No hay conexión a la base de datos. No se puede iniciar sesión.")
             return None
 
-        usuario_id = None  # Inicializa usuario_id como None para manejar casos donde el usuario no sea encontrado
+        #usuario_id = None  # Inicializa usuario_id como None para manejar casos donde el usuario no sea encontrado
         cursor = conexion.cursor()  # Crea un cursor para ejecutar operaciones en la base de datos
 
         while True:
-            self.usuario = input("Ingrese un usuario: ")  # Solicita al usuario ingresar un nombre de usuario
+            self.usuario = input("Ingrese un usuario: ")
             if self.usuario.strip() != "":
                 cursor.execute("SELECT usuario, clave, secret FROM registro_usuarios WHERE usuario = %s;", (self.usuario,))
-                resultado = cursor.fetchone()  # Recupera el primer registro de la consulta
+                resultado = cursor.fetchone()
                 if resultado:
                     break
                 else:
                     print("Usuario no encontrado. Por favor, intente nuevamente.")
             else:
-                print("El campo de usuario no puede estar vacío.")  # Verifica que el campo no esté vacío
+                print("El campo de usuario no puede estar vacío.")
 
-        opcion = input("Ingrese '1' para iniciar sesión o '2' si olvidó su contraseña: ")
-        if opcion == '1':
-            while True:
-                
-                self.clave = getpass.getpass("Ingrese una clave: ")  # Solicita al usuario ingresar una contraseña sin mostrarla
-                if self.clave.strip() != "":
-                    hashed_password = resultado[1]  # Accede al hash de la contraseña desde la base de datos
-                    if bcrypt.checkpw(bytes(self.clave, 'utf-8'), bytes(hashed_password, 'utf-8')):
-                        print("Contraseña verificada. Ingrese el código 2FA.")
-                        secret = resultado[2]  # Accede a la clave secreta de 2FA desde la base de datos
-                        totp = pyotp.TOTP(secret)
-                        while True:
-                            try:
-                                codigo_2fa = input("Ingrese el código 2FA: ")
-                                if totp.verify(codigo_2fa):
-                                    print("Inicio de sesión exitoso con 2FA.")  # Verifica el código 2FA
-                                    
-                                    break
+        while True:
+            opcion = input("Ingrese '1' para iniciar sesión o '2' si olvidó su contraseña: ")
+            if opcion == '1':
+                while True:
+                    self.clave = getpass.getpass("Ingrese una clave: ")
+                    if self.clave.strip() != "":
+                        hashed_password = resultado[1]
+                        if bcrypt.checkpw(bytes(self.clave, 'utf-8'), bytes(hashed_password, 'utf-8')):
+                            print("Contraseña verificada. Ingrese el código 2FA.")
+                            secret = resultado[2]
+                            totp = pyotp.TOTP(secret)
+                            while True:
+                                try:
+                                    codigo_2fa = input("Ingrese el código 2FA: ")
+                                    if totp.verify(codigo_2fa):
+                                        print("Inicio de sesión exitoso con 2FA.")
+                                        cursor.execute("SELECT id_registro FROM registro_usuarios WHERE usuario = %s;", (self.usuario,))
+                                        usuario_ingresado = cursor.fetchone()
+                                        if usuario_ingresado is not None:
+                                            global usuario_id
+                                            usuario_id = usuario_ingresado[0]
+                                            print("Atencion ",usuario_id)
+                                            
                                         
-
-                                else:
-                                    print("Código 2FA incorrecto. Por favor, intente nuevamente.")
-                            except Exception as e:
-                                print(f"Error al verificar el código 2FA: {e}")
-                        break
+                                        gestion = RegistrarInfo()
+                                        gestion.Gestion_datos()
+                                        # Aquí puedes realizar cualquier acción adicional después del inicio de sesión exitoso
+                                        return  # Salir del método después del inicio de sesión exitoso
+                                    else:
+                                        print("Código 2FA incorrecto. Por favor, intente nuevamente.")
+                                except Exception as e:
+                                    print(f"Error al verificar el código 2FA: {e}")
+                        else:
+                            print("Contraseña incorrecta. Por favor, intente nuevamente.")
                     else:
-                        print("Contraseña incorrecta. Por favor, intente nuevamente.")  # Mensaje de error si la contraseña no coincide
+                        print("El campo de clave no puede estar vacío.")
+            elif opcion == '2':
+                print("Proceso de recuperación de contraseña iniciado.")
+                secret = resultado[2]
+                totp = pyotp.TOTP(secret)
+                codigo_2fa = input("Ingrese el código 2FA para verificar su identidad: ")
+                if totp.verify(codigo_2fa):
+                    nueva_clave = input("Ingrese su nueva contraseña: ")
+                    confirmar_clave = input("Confirme su nueva contraseña: ")
+                    if nueva_clave == confirmar_clave:
+                        hashed_password = bcrypt.hashpw(bytes(nueva_clave, 'utf-8'), bcrypt.gensalt())
+                        cursor.execute("UPDATE registro_usuarios SET clave = %s WHERE usuario = %s;", (hashed_password, self.usuario))
+                        conexion.commit()
+                        print("Su contraseña ha sido actualizada exitosamente.")
+                    else:
+                        print("Las contraseñas no coinciden. Intente nuevamente.")
                 else:
-                    print("El campo de clave no puede estar vacío.")  # Verifica que el campo no esté vacío
-        elif opcion == '2':
-            print("Proceso de recuperación de contraseña iniciado.")
-            secret = resultado[2]  # Accede a la clave secreta de 2FA desde la base de datos
-            totp = pyotp.TOTP(secret)
-            codigo_2fa = input("Ingrese el código 2FA para verificar su identidad: ")
-            if totp.verify(codigo_2fa):
-                nueva_clave = input("Ingrese su nueva contraseña: ")
-                confirmar_clave = input("Confirme su nueva contraseña: ")
-                if nueva_clave == confirmar_clave:
-                    hashed_password = bcrypt.hashpw(bytes(nueva_clave, 'utf-8'), bcrypt.gensalt())
-                    cursor.execute("UPDATE registro_usuarios SET clave = %s WHERE usuario = %s;", (hashed_password, self.usuario))
-                    conexion.commit()
-                    print("Su contraseña ha sido actualizada exitosamente.")
-                else:
-                    print("Las contraseñas no coinciden. Intente nuevamente.")
+                    print("Código 2FA incorrecto. No se puede verificar su identidad.")
             else:
-                print("Código 2FA incorrecto. No se puede verificar su identidad.")
+                print("Opción incorrecta. Por favor, intente nuevamente.")
 
-        cursor.execute("SELECT id_registro FROM registro_usuarios WHERE usuario = %s;", (self.usuario,))
-        usuario_ingresado = cursor.fetchone()
-        if usuario_ingresado is not None:
-            usuario_id = usuario_ingresado[0]  # Accede a los elementos de usuario_ingresado
-
-        return usuario_id
-    
+            '''
+            cursor.execute("SELECT id_registro FROM registro_usuarios WHERE usuario = %s;", (self.usuario,))
+            usuario_ingresado = cursor.fetchone()
+            if usuario_ingresado is not None:
+                global usuario_id
+                usuario_id = usuario_ingresado[0]
+                print("Atencion ",usuario_id)
+                return usuario_id
+            '''    
+        
 
 
 class RegistrarInfo(Inicio_Secion): 
@@ -195,10 +210,13 @@ class RegistrarInfo(Inicio_Secion):
         self.pagina = ""
         self.usuario = ""
         self.clave_pagina = ""
-        self.id_usuario=None
+        #usuario_id=None
 
 
     def Gestion_datos(self):
+        
+        
+        
         try:
             with open('secret.key', 'rb') as key_file:
                 key = key_file.read()
@@ -208,13 +226,14 @@ class RegistrarInfo(Inicio_Secion):
             with open('secret.key', 'wb') as key_file:
                 key_file.write(key)
 
-        self.id_usuario = self.Inicio()
+        #usuario_id = self.Inicio()
 
         while True:
             opcion = input("1- para registrar\n"
                         "2- para editar registros \n"
-                        "3- para visualizar\n"
-                        "4- para salir\n")
+                        "3- para visualizar datos\n"
+                        "4- para busqueda manual \n"
+                        "5- para salir\n")
 
             if opcion == "1":
                 while True:
@@ -240,7 +259,7 @@ class RegistrarInfo(Inicio_Secion):
                             clave_encriptada = cipher_suite.encrypt(self.clave_red_social.encode('utf-8'))
 
                             datos = "INSERT INTO cat_redes_sociales (red_social, usuario, clave, relacion_registro_redes) VALUES (%s, %s, %s, %s);"
-                            cursor.execute(datos, (self.red_social, self.usuario_red_social, clave_encriptada, self.id_usuario))
+                            cursor.execute(datos, (self.red_social, self.usuario_red_social, clave_encriptada, usuario_id))
                             print("Registro exitoso.")
                             conexion.commit()
                             break
@@ -259,7 +278,7 @@ class RegistrarInfo(Inicio_Secion):
                             clave_encriptada_banco = cipher_suite.encrypt(self.clave_banco.encode('utf-8'))
 
                             datos = "INSERT INTO cat_bancos (banco, usuario, clave_banco, relacion_registro_banco) VALUES (%s, %s, %s, %s);"
-                            cursor.execute(datos, (self.banco, self.usuario_banco, clave_encriptada_banco, self.id_usuario))
+                            cursor.execute(datos, (self.banco, self.usuario_banco, clave_encriptada_banco, usuario_id))
                             print("Registro exitoso.")
                             conexion.commit()
                             break
@@ -277,7 +296,7 @@ class RegistrarInfo(Inicio_Secion):
                             clave_encriptada_correo = cipher_suite.encrypt(self.clave_correo.encode('utf-8'))
 
                             datos = "INSERT INTO cat_correos (tipo_correo, correo, clave_correo, relacion_registro_correos) VALUES (%s, %s, %s, %s);"
-                            cursor.execute(datos, (self.tipo_correo, self.correo, clave_encriptada_correo, self.id_usuario))
+                            cursor.execute(datos, (self.tipo_correo, self.correo, clave_encriptada_correo, usuario_id))
                             print("Registro exitoso.")
                             conexion.commit()
                             break
@@ -295,7 +314,7 @@ class RegistrarInfo(Inicio_Secion):
                             clave_encriptada_pagina = cipher_suite.encrypt(self.clave_pagina.encode('utf-8'))
 
                             datos = "INSERT INTO cat_varios (pagina, usuario, clave_pagina, relacion_registro_varios) VALUES (%s, %s, %s, %s);"
-                            cursor.execute(datos, (self.pagina, self.usuario, clave_encriptada_pagina, self.id_usuario))
+                            cursor.execute(datos, (self.pagina, self.usuario, clave_encriptada_pagina, usuario_id))
                             print("Registro exitoso.")
                             conexion.commit()
                             break
@@ -328,7 +347,7 @@ class RegistrarInfo(Inicio_Secion):
                         categoria_editar = input("Ingrese una opción: ")
 
                         if categoria_editar == "1":
-                            cursor.execute("SELECT * FROM cat_redes_sociales WHERE relacion_registro_redes = %s;", (self.id_usuario,))
+                            cursor.execute("SELECT * FROM cat_redes_sociales WHERE relacion_registro_redes = %s;", (usuario_id,))
                             base_datos = cursor.fetchall()
                             for idx, entry in enumerate(base_datos):
                                 print(f"{idx + 1}. {entry}")
@@ -346,7 +365,7 @@ class RegistrarInfo(Inicio_Secion):
                             conexion.commit()
 
                         elif categoria_editar == "2":
-                            cursor.execute("SELECT * FROM cat_correos WHERE relacion_registro_correos = %s;", (self.id_usuario,))
+                            cursor.execute("SELECT * FROM cat_correos WHERE relacion_registro_correos = %s;", (usuario_id,))
                             base_datos = cursor.fetchall()
                             for idx, entry in enumerate(base_datos):
                                 print(f"{idx + 1}. {entry}")
@@ -364,7 +383,7 @@ class RegistrarInfo(Inicio_Secion):
                             conexion.commit()
 
                         elif categoria_editar == "3":
-                            cursor.execute("SELECT * FROM cat_bancos WHERE relacion_registro_banco = %s;", (self.id_usuario,))
+                            cursor.execute("SELECT * FROM cat_bancos WHERE relacion_registro_banco = %s;", (usuario_id,))
                             base_datos = cursor.fetchall()
                             for idx, entry in enumerate(base_datos):
                                 print(f"{idx + 1}. {entry}")
@@ -382,7 +401,7 @@ class RegistrarInfo(Inicio_Secion):
                             conexion.commit()
 
                         elif categoria_editar == "4":
-                            cursor.execute("SELECT * FROM cat_varios WHERE relacion_registro_varios = %s;", (self.id_usuario,))
+                            cursor.execute("SELECT * FROM cat_varios WHERE relacion_registro_varios = %s;", (usuario_id,))
                             base_datos = cursor.fetchall()
                             for idx, entry in enumerate(base_datos):
                                 print(f"{idx + 1}. {entry}")
@@ -411,7 +430,7 @@ class RegistrarInfo(Inicio_Secion):
                         categoria_eliminar = input("Ingrese una opción: ")
 
                         if categoria_eliminar == "1":
-                            cursor.execute("SELECT * FROM cat_redes_sociales WHERE relacion_registro_redes = %s;", (self.id_usuario,))
+                            cursor.execute("SELECT * FROM cat_redes_sociales WHERE relacion_registro_redes = %s;", (usuario_id,))
                             base_datos = cursor.fetchall()
                             for idx, entry in enumerate(base_datos):
                                 print(f"{idx + 1}. {entry}")
@@ -423,7 +442,7 @@ class RegistrarInfo(Inicio_Secion):
                             conexion.commit()
 
                         elif categoria_eliminar == "2":
-                            cursor.execute("SELECT * FROM cat_correos WHERE relacion_registro_correos = %s;", (self.id_usuario,))
+                            cursor.execute("SELECT * FROM cat_correos WHERE relacion_registro_correos = %s;", (usuario_id,))
                             base_datos = cursor.fetchall()
                             for idx, entry in enumerate(base_datos):
                                 print(f"{idx + 1}. {entry}")
@@ -435,7 +454,7 @@ class RegistrarInfo(Inicio_Secion):
                             conexion.commit()
 
                         elif categoria_eliminar == "3":
-                            cursor.execute("SELECT * FROM cat_bancos WHERE relacion_registro_banco = %s;", (self.id_usuario,))
+                            cursor.execute("SELECT * FROM cat_bancos WHERE relacion_registro_banco = %s;", (usuario_id,))
                             base_datos = cursor.fetchall()
                             for idx, entry in enumerate(base_datos):
                                 print(f"{idx + 1}. {entry}")
@@ -447,7 +466,7 @@ class RegistrarInfo(Inicio_Secion):
                             conexion.commit()
 
                         elif categoria_eliminar == "4":
-                            cursor.execute("SELECT * FROM cat_varios WHERE relacion_registro_varios = %s;", (self.id_usuario,))
+                            cursor.execute("SELECT * FROM cat_varios WHERE relacion_registro_varios = %s;", (usuario_id,))
                             base_datos = cursor.fetchall()
                             for idx, entry in enumerate(base_datos):
                                 print(f"{idx + 1}. {entry}")
@@ -507,11 +526,9 @@ class RegistrarInfo(Inicio_Secion):
                     WHERE
                         r.id_registro = %s;
                     """
-                    cursor.execute(query, (self.id_usuario,))
+                    cursor.execute(query, (usuario_id,))
                     user_data = cursor.fetchall()
-                    print(self.id_usuario)
-                    print(user_data)
-                    print("ingreso datos**********")
+                  
                     if user_data:
                         print("Datos del usuario:")
                         cipher_suite = Fernet(key)  # Assuming 'key' is defined and holds the correct Fernet key
@@ -521,7 +538,7 @@ class RegistrarInfo(Inicio_Secion):
                             "banco": set(),
                             "varios": set()
                         }
-                        print("verificacion")
+                        
                         for entry in user_data:
                             
                             if entry[1] is not None and entry[2] is not None and entry[3] is not None:
@@ -561,7 +578,7 @@ class RegistrarInfo(Inicio_Secion):
                             #else:
                                 # print("No hay datos disponibles en esta categoría.")
                             print("-" * 40)
-                        print(categorized_entries)
+                        
                     else:
                         print("No se encontraron datos para el usuario.")
 
@@ -570,21 +587,142 @@ class RegistrarInfo(Inicio_Secion):
                     traceback.print_exc()
 
             elif opcion == "4":
+
+                cursor = conexion.cursor()
+
+                try:
+                    query = """
+                    SELECT
+                        cr.id_redes_sociales,
+                        cr.red_social,
+                        cr.usuario AS usuario_red_social,
+                        cr.clave AS clave_red_social,
+                        cc.id_correos,
+                        cc.tipo_correo,
+                        cc.correo AS correo_tipo,
+                        cc.clave_correo,
+                        cb.id_banco,
+                        cb.banco,
+                        cb.usuario AS usuario_banco,
+                        cb.clave_banco,
+                        cv.id_varios,
+                        cv.pagina,
+                        cv.usuario AS usuario_varios,
+                        cv.clave_pagina
+                    FROM
+                        registro_usuarios r
+                    LEFT JOIN
+                        cat_redes_sociales cr ON cr.relacion_registro_redes = r.id_registro
+                    LEFT JOIN
+                        cat_correos cc ON cc.relacion_registro_correos = r.id_registro
+                    LEFT JOIN
+                        cat_bancos cb ON cb.relacion_registro_banco = r.id_registro
+                    LEFT JOIN
+                        cat_varios cv ON cv.relacion_registro_varios = r.id_registro
+                    WHERE
+                        r.id_registro = %s;
+                    """
+                    cursor.execute(query, (usuario_id,))
+                    user_data = cursor.fetchall()
+                    
+                    if user_data:
+                        print("Datos del usuario:")
+                        cipher_suite = Fernet(key)  # Assuming 'key' is defined and holds the correct Fernet key
+                        categorized_entries = {
+                            "red_social": set(),
+                            "correo": set(),
+                            "banco": set(),
+                            "varios": set()
+                        }
+                        
+                        for entry in user_data:
+                            if entry[1] is not None and entry[2] is not None and entry[3] is not None:
+                                try:
+                                    clave_desencriptada = cipher_suite.decrypt(entry[3]).decode()
+                                    categorized_entries["red_social"].add((entry[1], entry[2], clave_desencriptada))
+                                except Exception as e:
+                                    print(f"Error desencriptando red_social: {e}")
+                                    traceback.print_exc()
+                            if entry[5] is not None and entry[6] is not None and entry[7] is not None:
+                                try:
+                                    clave_desencriptada = cipher_suite.decrypt(entry[7]).decode()
+                                    categorized_entries["correo"].add((entry[5], entry[6], clave_desencriptada))
+                                except Exception as e:
+                                    print(f"Error desencriptando correo: {e}")
+                                    traceback.print_exc()
+                            if entry[9] is not None and entry[10] is not None and entry[11] is not None:
+                                try:
+                                    clave_desencriptada = cipher_suite.decrypt(entry[11]).decode()
+                                    categorized_entries["banco"].add((entry[9], entry[10], clave_desencriptada))
+                                except Exception as e:
+                                    print(f"Error desencriptando banco: {e}")
+                                    traceback.print_exc()
+                            if entry[13] is not None and entry[14] is not None and entry[15] is not None:
+                                try:
+                                    clave_desencriptada = cipher_suite.decrypt(entry[15]).decode()
+                                    categorized_entries["varios"].add((entry[13], entry[14], clave_desencriptada))
+                                except Exception as e:
+                                    print(f"Error desencriptando varios: {e}")
+                                    traceback.print_exc()
+                        
+                        search_term = input("Ingrese el término de búsqueda: ").lower()
+                        found = False
+                        for category, entries in categorized_entries.items():
+                            for entry in entries:
+                                if search_term in entry[0].lower() or search_term in entry[1].lower() or search_term in entry[2].lower():
+                                    print(f"Categoría: {category}")
+                                    print(f"Tipo: {entry[0]}, Usuario: {entry[1]}, Clave: {entry[2]}")
+                                    print("-" * 40)
+                                    found = True
+                        if not found:
+                            print("No se encontraron datos que coincidan con el término de búsqueda.")
+                    else:
+                        print("No se encontraron datos para el usuario.")
+
+                except Exception as e:
+                    print(f"Error al recuperar datos: {e}")
+                    traceback.print_exc()
+        
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            elif opcion == "5":
+
                 print("Saliendo del programa...")
                 exit()
 
 
     
 # Ejemplo de uso
-#registro = Registro()
-#registro.Registrar()
 
-#inicio_sesion = Inicio_Secion()
-#inicio_sesion.Inicio()
-#if bandera:
-registro_info = RegistrarInfo()
-registro_info.Gestion_datos()
-#registro_info.Visualizar_todo()
+while True:
+
+    var =input ("1- para registar "
+            "2- para iniciar secion "
+        )
+
+
+
+    if var == "1":
+        registro = Registro()
+        registro.Registrar()
+
+    elif var == "2":
+
+        inicio_sesion = Inicio_Secion()
+        inicio_sesion.Inicio()
+
+    else:
+        print("ingrese un opcion valida ")  
+
 
 
 
