@@ -12,6 +12,10 @@ import os
 #usuario_id = 0;
 
 # Intenta establecer conexión con la base de datos y maneja posibles errores de conexión
+
+
+#version dañada
+    
 try:
     conexion = mysql.connector.connect(
         host="localhost",  # Servidor donde se encuentra la base de datos
@@ -23,6 +27,9 @@ try:
 except mysql.connector.Error as e:
     print(f"Error al conectar a la base de datos: {e}")  # Mensaje de error si la conexión falla
     conexion = None  # Establece la conexión como None si hay errores
+
+# Crear una instancia de la clase y conectar a la base de datos
+
 
 #Variable global
 usuario_id = None
@@ -101,6 +108,8 @@ class Registro():
         cursor.execute(datos, (self.usuario, self.correo, self.hashed_password, self.secret))  # Ejecuta la sentencia SQL
         print("Registro exitoso")  # Imprime mensaje de registro exitoso
         conexion.commit()  # Confirma la transacción
+          
+
 # Clase que se ejecuta después del registro o solo al iniciar sesión (Se ejecuta después del rebote del registro)
 class Inicio_Secion(Registro):
     def __init__(self):
@@ -118,82 +127,77 @@ class Inicio_Secion(Registro):
         cursor = conexion.cursor()  # Crea un cursor para ejecutar operaciones en la base de datos
 
         while True:
-            self.usuario = input("Ingrese un usuario: ")
-            if self.usuario.strip() != "":
-                cursor.execute("SELECT usuario, clave, secret FROM registro_usuarios WHERE usuario = %s;", (self.usuario,))
-                resultado = cursor.fetchone()
-                if resultado:
-                    break
+            self.usuario = input("Ingrese un usuario: ")  # Solicita al usuario que ingrese su nombre de usuario
+            if self.usuario.strip() != "":  # Verifica que el campo de usuario no esté vacío
+                cursor.execute("SELECT usuario, clave, secret FROM registro_usuarios WHERE usuario = %s;", (self.usuario,))  # Consulta la base de datos para obtener el usuario, clave y secreto
+                resultado = cursor.fetchone()  # Obtiene el primer resultado de la consulta
+                if resultado:  # Si se encuentra un resultado
+                    break  # Sale del bucle
                 else:
-                    print("Usuario no encontrado. Por favor, intente nuevamente.")
+                    print("Usuario no encontrado. Por favor, intente nuevamente.")  # Informa al usuario que no se encontró el usuario
             else:
-                print("El campo de usuario no puede estar vacío.")
+                print("El campo de usuario no puede estar vacío.")  # Informa al usuario que el campo de usuario no puede estar vacío
 
         while True:
-            opcion = input("Ingrese '1' para iniciar sesión o '2' si olvidó su contraseña: ")
-            if opcion == '1':
+            opcion = input("Ingrese '1' para iniciar sesión o '2' si olvidó su contraseña: ")  # Solicita al usuario que elija una opción
+            if opcion == '1':  # Si elige iniciar sesión
                 while True:
-                    self.clave = getpass.getpass("Ingrese una clave: ")
-                    if self.clave.strip() != "":
-                        hashed_password = resultado[1]
-                        if bcrypt.checkpw(bytes(self.clave, 'utf-8'), bytes(hashed_password, 'utf-8')):
-                            print("Contraseña verificada. Ingrese el código 2FA.")
-                            secret = resultado[2]
-                            totp = pyotp.TOTP(secret)
+                    self.clave = getpass.getpass("Ingrese una clave: ")  # Solicita al usuario que ingrese su clave
+                    if self.clave.strip() != "":  # Verifica que el campo de clave no esté vacío
+                        hashed_password = resultado[1]  # Obtiene la clave encriptada del resultado de la consulta
+                        if bcrypt.checkpw(bytes(self.clave, 'utf-8'), bytes(hashed_password, 'utf-8')):  # Verifica que la clave ingresada coincida con la clave encriptada
+                            print("Contraseña verificada. Ingrese el código 2FA.")  # Informa al usuario que la contraseña ha sido verificada y solicita el código 2FA
+                            secret = resultado[2]  # Obtiene el secreto del resultado de la consulta
+                            totp = pyotp.TOTP(secret)  # Crea un objeto TOTP con el secreto
                             while True:
                                 try:
-                                    codigo_2fa = input("Ingrese el código 2FA: ")
-                                    if totp.verify(codigo_2fa):
-                                        print("Inicio de sesión exitoso con 2FA.")
-                                        cursor.execute("SELECT id_registro FROM registro_usuarios WHERE usuario = %s;", (self.usuario,))
-                                        usuario_ingresado = cursor.fetchone()
-                                        if usuario_ingresado is not None:
-                                            global usuario_id
-                                            usuario_id = usuario_ingresado[0]
-                                            print("Atencion ",usuario_id)
+                                    codigo_2fa = input("Ingrese el código 2FA: ")  # Solicita al usuario que ingrese el código 2FA
+                                    if totp.verify(codigo_2fa):  # Verifica que el código 2FA sea correcto
+                                        print("Inicio de sesión exitoso con 2FA.")  # Informa al usuario que el inicio de sesión ha sido exitoso
+                                        cursor.execute("SELECT id_registro FROM registro_usuarios WHERE usuario = %s;", (self.usuario,))  # Consulta la base de datos para obtener el ID del usuario
+                                        usuario_ingresado = cursor.fetchone()  # Obtiene el primer resultado de la consulta
+                                        if usuario_ingresado is not None:  # Si se encuentra un resultado
+                                            global usuario_id  # Declara la variable usuario_id como global
+                                            usuario_id = usuario_ingresado[0]  # Asigna el ID del usuario a la variable usuario_id
+                                            
                                             
                                         
-                                            gestion = RegistrarInfo()
-                                            gestion.Gestion_datos()
+                                            gestion = RegistrarInfo()  # Crea una instancia de la clase RegistrarInfo
+                                            gestion.Gestion_datos()  # Llama al método Gestion_datos de la instancia gestion
                                         # Aquí puedes realizar cualquier acción adicional después del inicio de sesión exitoso
+                                          # Cierra el cursor
+                                          
+                                        
                                         return  # Salir del método después del inicio de sesión exitoso
                                     else:
-                                        print("Código 2FA incorrecto. Por favor, intente nuevamente.")
+                                        print("Código 2FA incorrecto. Por favor, intente nuevamente.")  # Informa al usuario que el código 2FA es incorrecto
                                 except Exception as e:
-                                    print(f"Error al verificar el código 2FA: {e}")
+                                    print(f"Error al verificar el código 2FA: {e}")  # Informa al usuario que hubo un error al verificar el código 2FA
                         else:
-                            print("Contraseña incorrecta. Por favor, intente nuevamente.")
+                            print("Contraseña incorrecta. Por favor, intente nuevamente.")  # Informa al usuario que la contraseña es incorrecta
                     else:
-                        print("El campo de clave no puede estar vacío.")
-            elif opcion == '2':
-                print("Proceso de recuperación de contraseña iniciado.")
-                secret = resultado[2]
-                totp = pyotp.TOTP(secret)
-                codigo_2fa = input("Ingrese el código 2FA para verificar su identidad: ")
-                if totp.verify(codigo_2fa):
-                    nueva_clave = input("Ingrese su nueva contraseña: ")
-                    confirmar_clave = input("Confirme su nueva contraseña: ")
-                    if nueva_clave == confirmar_clave:
-                        hashed_password = bcrypt.hashpw(bytes(nueva_clave, 'utf-8'), bcrypt.gensalt())
-                        cursor.execute("UPDATE registro_usuarios SET clave = %s WHERE usuario = %s;", (hashed_password, self.usuario))
-                        conexion.commit()
-                        print("Su contraseña ha sido actualizada exitosamente.")
+                        print("El campo de clave no puede estar vacío.")  # Informa al usuario que el campo de clave no puede estar vacío
+            elif opcion == '2':  # Si elige recuperar la contraseña
+                print("Proceso de recuperación de contraseña iniciado.")  # Informa al usuario que se ha iniciado el proceso de recuperación de contraseña
+                secret = resultado[2]  # Obtiene el secreto del resultado de la consulta
+                totp = pyotp.TOTP(secret)  # Crea un objeto TOTP con el secreto
+                codigo_2fa = input("Ingrese el código 2FA para verificar su identidad: ")  # Solicita al usuario que ingrese el código 2FA para verificar su identidad
+                if totp.verify(codigo_2fa):  # Verifica que el código 2FA sea correcto
+                    nueva_clave = input("Ingrese su nueva contraseña: ")  # Solicita al usuario que ingrese su nueva contraseña
+                    confirmar_clave = input("Confirme su nueva contraseña: ")  # Solicita al usuario que confirme su nueva contraseña
+                    if nueva_clave == confirmar_clave:  # Verifica que las contraseñas coincidan
+                        hashed_password = bcrypt.hashpw(bytes(nueva_clave, 'utf-8'), bcrypt.gensalt())  # Encripta la nueva contraseña
+                        cursor.execute("UPDATE registro_usuarios SET clave = %s WHERE usuario = %s;", (hashed_password, self.usuario))  # Actualiza la contraseña en la base de datos
+                        conexion.commit()  # Confirma la transacción
+                        cursor.close()
+                        conexion.close()
+                        print("Su contraseña ha sido actualizada exitosamente.")  # Informa al usuario que la contraseña ha sido actualizada exitosamente
                     else:
-                        print("Las contraseñas no coinciden. Intente nuevamente.")
+                        print("Las contraseñas no coinciden. Intente nuevamente.")  # Informa al usuario que las contraseñas no coinciden
                 else:
-                    print("Código 2FA incorrecto. No se puede verificar su identidad.")
+                    print("Código 2FA incorrecto. No se puede verificar su identidad.")  # Informa al usuario que el código 2FA es incorrecto y no se puede verificar su identidad
             else:
-                print("Opción incorrecta. Por favor, intente nuevamente.")
-
-            '''
-            cursor.execute("SELECT id_registro FROM registro_usuarios WHERE usuario = %s;", (self.usuario,))
-            usuario_ingresado = cursor.fetchone()
-            if usuario_ingresado is not None:
-                global usuario_id
-                usuario_id = usuario_ingresado[0]
-                print("Atencion ",usuario_id)
-                return usuario_id
-            '''    
+                print("Opción incorrecta. Por favor, intente nuevamente.")  # Informa al usuario que la opción ingresada es incorrecta
         
 
 
@@ -213,7 +217,7 @@ class RegistrarInfo(Inicio_Secion):
         self.pagina = ""
         self.usuario = ""
         self.clave_pagina = ""
-        #usuario_id=None
+       
 
 
     def Gestion_datos(self):
@@ -231,12 +235,6 @@ class RegistrarInfo(Inicio_Secion):
 
         #usuario_id = self.Inicio()
 
-
-    
-    
-
-
-
         while True:
             opcion = input("1- para registrar\n"
                         "2- para editar registros \n"
@@ -250,6 +248,8 @@ class RegistrarInfo(Inicio_Secion):
             if opcion == "1":
                 while True:
                     try:
+                        print("----------------------")
+
                         categoria = input("1- para categoria redes sociales\n"
                                         "2- para categoria bancos\n"
                                         "3- para categoria correos\n"
@@ -274,6 +274,8 @@ class RegistrarInfo(Inicio_Secion):
                             cursor.execute(datos, (self.red_social, self.usuario_red_social, clave_encriptada, usuario_id))
                             print("Registro exitoso.")
                             conexion.commit()
+                            
+                              
                             break
 
                         elif categoria == "2":
@@ -293,6 +295,8 @@ class RegistrarInfo(Inicio_Secion):
                             cursor.execute(datos, (self.banco, self.usuario_banco, clave_encriptada_banco, usuario_id))
                             print("Registro exitoso.")
                             conexion.commit()
+                            
+                              
                             break
 
                         elif categoria == "3":
@@ -311,9 +315,12 @@ class RegistrarInfo(Inicio_Secion):
                             cursor.execute(datos, (self.tipo_correo, self.correo, clave_encriptada_correo, usuario_id))
                             print("Registro exitoso.")
                             conexion.commit()
+                            
+                              
                             break
 
                         elif categoria == "4":
+                            
                             cursor = conexion.cursor()
                             cursor.execute("SELECT * FROM cat_varios;")
                             base_datos = cursor.fetchall()
@@ -329,6 +336,8 @@ class RegistrarInfo(Inicio_Secion):
                             cursor.execute(datos, (self.pagina, self.usuario, clave_encriptada_pagina, usuario_id))
                             print("Registro exitoso.")
                             conexion.commit()
+                            
+                              
                             break
 
                         else:
@@ -359,6 +368,7 @@ class RegistrarInfo(Inicio_Secion):
                         categoria_editar = input("Ingrese una opción: ")
 
                         if categoria_editar == "1":
+                            cursor = conexion.cursor()
                             cursor.execute("SELECT * FROM cat_redes_sociales WHERE relacion_registro_redes = %s;", (usuario_id,))
                             base_datos = cursor.fetchall()
                             for idx, entry in enumerate(base_datos):
@@ -375,8 +385,11 @@ class RegistrarInfo(Inicio_Secion):
                             cursor.execute(datos, (self.red_social, self.usuario_red_social, clave_encriptada_red_social, base_datos[seleccion][0]))
                             print("Actualización exitosa.")
                             conexion.commit()
+                            
+                              
 
                         elif categoria_editar == "2":
+                            cursor = conexion.cursor()
                             cursor.execute("SELECT * FROM cat_correos WHERE relacion_registro_correos = %s;", (usuario_id,))
                             base_datos = cursor.fetchall()
                             for idx, entry in enumerate(base_datos):
@@ -393,8 +406,11 @@ class RegistrarInfo(Inicio_Secion):
                             cursor.execute(datos, (self.tipo_correo, self.correo, clave_encriptada_correo, base_datos[seleccion][0]))
                             print("Actualización exitosa.")
                             conexion.commit()
+                            
+                              
 
                         elif categoria_editar == "3":
+                            cursor = conexion.cursor()
                             cursor.execute("SELECT * FROM cat_bancos WHERE relacion_registro_banco = %s;", (usuario_id,))
                             base_datos = cursor.fetchall()
                             for idx, entry in enumerate(base_datos):
@@ -411,8 +427,11 @@ class RegistrarInfo(Inicio_Secion):
                             cursor.execute(datos, (self.banco, self.usuario_banco, clave_encriptada_banco, base_datos[seleccion][0]))
                             print("Actualización exitosa.")
                             conexion.commit()
+                            
+                              
 
                         elif categoria_editar == "4":
+                            cursor = conexion.cursor()
                             cursor.execute("SELECT * FROM cat_varios WHERE relacion_registro_varios = %s;", (usuario_id,))
                             base_datos = cursor.fetchall()
                             for idx, entry in enumerate(base_datos):
@@ -429,6 +448,8 @@ class RegistrarInfo(Inicio_Secion):
                             cursor.execute(datos, (self.pagina, self.usuario_varios, clave_encriptada_pagina, base_datos[seleccion][0]))
                             print("Actualización exitosa.")
                             conexion.commit()
+                            
+                              
 
                         else:
                             print("Ingrese una opción válida.")
@@ -442,6 +463,7 @@ class RegistrarInfo(Inicio_Secion):
                         categoria_eliminar = input("Ingrese una opción: ")
 
                         if categoria_eliminar == "1":
+                            cursor = conexion.cursor()
                             cursor.execute("SELECT * FROM cat_redes_sociales WHERE relacion_registro_redes = %s;", (usuario_id,))
                             base_datos = cursor.fetchall()
                             for idx, entry in enumerate(base_datos):
@@ -452,8 +474,11 @@ class RegistrarInfo(Inicio_Secion):
                             cursor.execute(datos, (base_datos[seleccion][0],))
                             print("Eliminación exitosa.")
                             conexion.commit()
+                            
+                              
 
                         elif categoria_eliminar == "2":
+                            cursor = conexion.cursor()
                             cursor.execute("SELECT * FROM cat_correos WHERE relacion_registro_correos = %s;", (usuario_id,))
                             base_datos = cursor.fetchall()
                             for idx, entry in enumerate(base_datos):
@@ -464,8 +489,11 @@ class RegistrarInfo(Inicio_Secion):
                             cursor.execute(datos, (base_datos[seleccion][0],))
                             print("Eliminación exitosa.")
                             conexion.commit()
+                            
+                              
 
                         elif categoria_eliminar == "3":
+                            cursor = conexion.cursor()
                             cursor.execute("SELECT * FROM cat_bancos WHERE relacion_registro_banco = %s;", (usuario_id,))
                             base_datos = cursor.fetchall()
                             for idx, entry in enumerate(base_datos):
@@ -476,8 +504,11 @@ class RegistrarInfo(Inicio_Secion):
                             cursor.execute(datos, (base_datos[seleccion][0],))
                             print("Eliminación exitosa.")
                             conexion.commit()
+                            
+                              
 
                         elif categoria_eliminar == "4":
+                            cursor = conexion.cursor()
                             cursor.execute("SELECT * FROM cat_varios WHERE relacion_registro_varios = %s;", (usuario_id,))
                             base_datos = cursor.fetchall()
                             for idx, entry in enumerate(base_datos):
@@ -488,6 +519,8 @@ class RegistrarInfo(Inicio_Secion):
                             cursor.execute(datos, (base_datos[seleccion][0],))
                             print("Eliminación exitosa.")
                             conexion.commit()
+                            
+                              
 
                         else:
                             print("Ingrese una opción válida.")
@@ -498,6 +531,7 @@ class RegistrarInfo(Inicio_Secion):
                 except Exception as e:
                     print(f"Ocurrió un error: {e}")
                     traceback.print_exc()  # Esto imprimirá el traceback completo del error
+                    
                     continue
 
 
@@ -593,10 +627,12 @@ class RegistrarInfo(Inicio_Secion):
                         
                     else:
                         print("No se encontraron datos para el usuario.")
+                    
 
                 except Exception as e:
                     print(f"Error al recuperar datos: {e}")
                     traceback.print_exc()
+                                   
 
             elif opcion == "4":
 
@@ -690,14 +726,17 @@ class RegistrarInfo(Inicio_Secion):
                             print("No se encontraron datos que coincidan con el término de búsqueda.")
                     else:
                         print("No se encontraron datos para el usuario.")
+                    
 
                 except Exception as e:
                     print(f"Error al recuperar datos: {e}")
                     traceback.print_exc()
-        
+                    
+                
             
             elif opcion == "5":
                 try:
+                    
                     nombre_archivo = input("ingrese el nombre del archivo ")
                     tipo_archivo= input("ingrese el tipo de archivo ") 
                     ruta_archivo = input("ingrese la ruta del archivo ")
@@ -715,13 +754,17 @@ class RegistrarInfo(Inicio_Secion):
                     # Ejecutar la consulta y confirmar los cambios
                     cursor.execute(sql, datos)
                     conexion.commit()
+                    cursor.close()
+                    conexion.close()
                     
                     print("Archivo guardado exitosamente.")
+                    
                 except FileNotFoundError:
                     print("Error: El archivo no se encontró en la ruta especificada.")
                 except Exception as e:
                     print(f"Error al guardar el archivo: {e}")
                     traceback.print_exc()
+                    
                     # Ejemplo de uso de la función
 #guardar_archivo_multimedia(1, "imagen_prueba.jpg", "image/jpeg", "/ruta/a/imagen_prueba.jpg")
 
@@ -747,6 +790,7 @@ class RegistrarInfo(Inicio_Secion):
                 seleccion = input("Ingrese el ID del archivo que desea visualizar (o 'q' para salir): ")
                 
                 if seleccion.lower() == 'q':
+                    
                     continue
                 
                 id_archivo = int(seleccion)
@@ -777,8 +821,7 @@ class RegistrarInfo(Inicio_Secion):
                 
                 else:
                     print("No se encontró el archivo especificado.")
-
-
+                
             
             elif opcion == "7":
                 cursor = conexion.cursor()
@@ -814,27 +857,22 @@ class RegistrarInfo(Inicio_Secion):
                 conexion.commit()
                 
                 print(f"Archivo con ID {id_archivo} eliminado exitosamente.")
+
+                cursor.close()
+                conexion.close()
             
             elif opcion == "8":
 
                     print("Saliendo del programa...")
                     exit()
-
-
     
 # Ejemplo de uso
-
-
-
-
 
 while True:
 
     var =input ("1- para registar "
-            "2- para iniciar secion "
+                "2- para iniciar secion "
         )
-
-
 
     if var == "1":
         registro = Registro()
@@ -847,8 +885,3 @@ while True:
 
     else:
         print("ingrese un opcion valida ")  
-
-
-
-
-
